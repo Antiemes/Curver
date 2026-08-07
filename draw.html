@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFT Shape Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .canvas-wrapper h2 {
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        #shapeCanvas {
+            width: 350px;
+            height: 350px;
+            border: 1px solid #000;
+            background: #fff;
+            cursor: default;
+        }
+
+        #fftCanvas {
+            width: 350px;
+            height: 350px;
+            border: 1px solid #000;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-wrapper">
+            <h2>Shape</h2>
+            <canvas id="shapeCanvas" width="350" height="350"></canvas>
+        </div>
+        <div class="canvas-wrapper">
+            <h2>FFT</h2>
+            <canvas id="fftCanvas" width="350" height="350"></canvas>
+        </div>
+    </div>
+    <script src="draw.js"></script>
+</body>
+</html>
