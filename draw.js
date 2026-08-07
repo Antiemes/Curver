@@ -19,6 +19,12 @@ const RADIUS = CANVAS_SIZE * 0.4;        // radius of the initial circle
 const points = [];   // {x, y}
 let dragIndex = -1;  // index of point currently being dragged
 
+// --- Fourier coefficients array (32 elements) ---
+const fourierCoeffs = Array.from({ length: N }, () => ({
+    amplitude: 0,
+    phase: 0
+}));
+
 // --- Initialise points equally spaced on a circle ---
 for (let i = 0; i < N; i++) {
     const angle = (2 * Math.PI * i) / N - Math.PI / 2; // start at top
@@ -110,6 +116,16 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', () => {
     dragIndex = -1;
     shapeCanvas.style.cursor = 'default';
+});
+
+// --- Randomize button ---
+const randomizeBtn = document.getElementById('randomizeBtn');
+randomizeBtn.addEventListener('click', () => {
+    for (let i = 0; i < N; i++) {
+        fourierCoeffs[i].amplitude = Math.random() * 4 - 2;       // [-2, 2]
+        fourierCoeffs[i].phase = Math.random() * 2 * Math.PI;     // [0, 2π]
+    }
+    console.log('Coefficients randomized:', fourierCoeffs);
 });
 
 // --- Expose points for external use ---
