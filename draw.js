@@ -56,6 +56,30 @@ function findNearestPoint(mx, my) {
     return -1;
 }
 
+// --- Fourier series evaluation ---
+// Given t in [0, 2π], compute x, y from Fourier coefficients:
+//   x = Σ amplitude_k * cos(t * k + phase_k)
+//   y = Σ amplitude_k * sin(t * k + phase_k)
+function fourierPoint(t) {
+    let x = 0, y = 0;
+    for (let k = 0; k < N; k++) {
+        x += fourierCoeffs[k].amplitude * Math.cos(t * k + fourierCoeffs[k].phase);
+        y += fourierCoeffs[k].amplitude * Math.sin(t * k + fourierCoeffs[k].phase);
+    }
+    return { x, y };
+}
+
+// Map mathematical coordinates (origin at center, range [-1,1] mapped to canvas bounds)
+// to canvas pixel coordinates
+function mathToCanvas(mx, my) {
+    const margin = 10;
+    const halfSize = (CANVAS_SIZE / 2) - margin;
+    return {
+        cx: CENTER + mx * halfSize,
+        cy: CENTER - my * halfSize   // flip y: canvas 0 is at top
+    };
+}
+
 // --- Drawing ---
 function draw() {
     // Clear both canvases
@@ -84,8 +108,24 @@ function draw() {
         shapeCtx.stroke();
     }
 
-    // --- FFT canvas: placeholder (user will fill later) ---
-    // Access point coordinates via fftCtx and the points array
+    // --- Draw Fourier curve on FFT canvas ---
+    fftCtx.beginPath();
+    fftCtx.strokeStyle = '#00f';
+    fftCtx.lineWidth = 1.5;
+
+    const steps = 500;
+    for (let s = 0; s <= steps; s++) {
+        const t = (s / steps) * 2 * Math.PI;
+        const pt = fourierPoint(t);
+        const { cx, cy } = mathToCanvas(pt.x, pt.y);
+        if (s === 0) {
+            fftCtx.moveTo(cx, cy);
+        } else {
+            fftCtx.lineTo(cx, cy);
+        }
+    }
+    fftCtx.closePath();
+    fftCtx.stroke();
 }
 
 // --- Mouse events on shape canvas ---
@@ -126,6 +166,7 @@ randomizeBtn.addEventListener('click', () => {
         fourierCoeffs[i].phase = Math.random() * 2 * Math.PI;     // [0, 2π]
     }
     console.log('Coefficients randomized:', fourierCoeffs);
+    draw();
 });
 
 // --- Expose points for external use ---
