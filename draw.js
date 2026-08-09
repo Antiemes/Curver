@@ -56,6 +56,87 @@ function findNearestPoint(mx, my) {
     return -1;
 }
 
+// --- Radix-2 Cooley-Tukey iterative FFT ---
+// Operates in-place on an array of {re, im} complex numbers.
+// Length must be a power of 2.
+function fft(complexArray) {
+    const n = complexArray.length;
+    const bits = Math.log2(n);
+
+    // Bit-reversal permutation
+    for (let i = 0; i < n; i++) {
+        let j = 0;
+        for (let b = 0; b < bits; b++) {
+            j = (j << 1) | ((i >> b) & 1);
+        }
+        if (i < j) {
+            const tmp = complexArray[i];
+            complexArray[i] = complexArray[j];
+            complexArray[j] = tmp;
+        }
+    }
+
+    // Butterfly stages
+    for (let len = 2; len <= n; len *= 2) {
+        const halfLen = len >> 1;
+        const angle = -2 * Math.PI / len;
+        const wLenRe = Math.cos(angle);
+        const wLenIm = Math.sin(angle);
+
+        for (let i = 0; i < n; i += len) {
+            let wRe = 1;
+            let wIm = 0;
+            for (let j = 0; j < halfLen; j++) {
+                const uRe = complexArray[i + j].re;
+                const uIm = complexArray[i + j].im;
+                const vRe = complexArray[i + j + halfLen].re * wRe
+                          - complexArray[i + j + halfLen].im * wIm;
+                const vIm = complexArray[i + j + halfLen].re * wIm
+                          + complexArray[i + j + halfLen].im * wRe;
+
+                complexArray[i + j].re = uRe + vRe;
+                complexArray[i + j].im = uIm + vIm;
+                complexArray[i + j + halfLen].re = uRe - vRe;
+                complexArray[i + j + halfLen].im = uIm - vIm;
+
+                // Update twiddle factor: w *= wLen
+                const newWRe = wRe * wLenRe - wIm * wLenIm;
+                const newWIm = wRe * wLenIm + wIm * wLenRe;
+                wRe = newWRe;
+                wIm = newWIm;
+            }
+        }
+    }
+}
+
+// --- Compute FFT of the current point positions ---
+function computeFFT() {
+    const n = points.length;
+
+    // Normalize coordinates to the [-1, 1] range used by mathToCanvas
+    const margin = 10;
+    const halfSize = (CANVAS_SIZE / 2) - margin;
+    const xNorm = points.map(p => (p.x - CENTER) / halfSize);
+    const yNorm = points.map(p => -(p.y - CENTER) / halfSize); // flip y
+
+    // Combine into complex signal z = x + i*y
+    const complexZ = xNorm.map((x, i) => ({ re: x, im: yNorm[i] }));
+
+    // Run FFT in-place
+    fft(complexZ);
+
+    // Convert each FFT bin to amplitude and phase
+    for (let k = 0; k < n; k++) {
+        const re = complexZ[k].re;
+        const im = complexZ[k].im;
+        fourierCoeffs[k].amplitude = Math.sqrt(re * re + im * im) / n;
+        fourierCoeffs[k].phase = Math.atan2(im, re);
+    }
+
+    console.log('FFT coefficients updated:', fourierCoeffs);
+    draw();
+}
+
 // --- Fourier series evaluation ---
 // Given t in [0, 2π], compute x, y from Fourier coefficients:
 //   x = Σ amplitude_k * cos(t * k + phase_k)
@@ -69,7 +150,7 @@ function fourierPoint(t) {
     return { x, y };
 }
 
-// Map mathematical coordinates (origin at center, range [-1,1] mapped to canvas bounds)
+// Map mathematical coordinates (origin at center, range [-1,1])
 // to canvas pixel coordinates
 function mathToCanvas(mx, my) {
     const margin = 10;
@@ -158,6 +239,10 @@ window.addEventListener('mouseup', () => {
     shapeCanvas.style.cursor = 'default';
 });
 
+// --- Compute FFT button ---
+const fftBtn = document.getElementById('fftBtn');
+fftBtn.addEventListener('click', computeFFT);
+
 // --- Randomize button ---
 const randomizeBtn = document.getElementById('randomizeBtn');
 randomizeBtn.addEventListener('click', () => {
@@ -170,9 +255,6 @@ randomizeBtn.addEventListener('click', () => {
 });
 
 // --- Expose points for external use ---
-// The `points` array is always up-to-date and can be read from anywhere:
-//   e.g., fftCtx uses points[i].x, points[i].y directly.
-// A getter is also available:
 Object.defineProperty(window, 'getPointCoordinates', {
     value: () => points.map(p => ({ x: p.x, y: p.y })),
     configurable: true

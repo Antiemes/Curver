@@ -60,7 +60,12 @@
             background: #fff;
         }
 
-        #randomizeBtn {
+        .btn-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
             padding: 8px 20px;
             font-size: 14px;
             cursor: pointer;
@@ -69,7 +74,7 @@
             border-radius: 4px;
         }
 
-        #randomizeBtn:hover {
+        .btn:hover {
             background: #eee;
         }
     </style>
@@ -86,7 +91,10 @@
                 <canvas id="fftCanvas" width="350" height="350"></canvas>
             </div>
         </div>
-        <button id="randomizeBtn">Randomize Coefficients</button>
+        <div class="btn-row">
+            <button id="fftBtn" class="btn">Compute FFT</button>
+            <button id="randomizeBtn" class="btn">Randomize Coefficients</button>
+        </div>
     </div>
     <script src="draw.js"></script>
 </body>
