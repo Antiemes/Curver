@@ -4,51 +4,64 @@ const fftCanvas = document.getElementById('fftCanvas');
 const fftCtx = fftCanvas.getContext('2d');
 
 // --- Configuration ---
-const N = 32;                // number of points
-const SCALE = 3.78;          // pixels per mm at 96 DPI
+const N = 32;
+const SCALE = 3.78;
 const CIRCLE_DIAMETER_MM = 3;
 const LINE_THICKNESS_MM = 0.5;
-const CIRCLE_RADIUS = (CIRCLE_DIAMETER_MM * SCALE) / 2;   // ≈ 5.67 px
-const LINE_THICKNESS = LINE_THICKNESS_MM * SCALE;           // ≈ 1.89 px
+const CIRCLE_RADIUS = (CIRCLE_DIAMETER_MM * SCALE) / 2;
+const LINE_THICKNESS = LINE_THICKNESS_MM * SCALE;
 
-const CANVAS_SIZE = shapeCanvas.width;   // 350
-const CENTER = CANVAS_SIZE / 2;          // 175
-const RADIUS = CANVAS_SIZE * 0.4;        // radius of the initial circle
+const CANVAS_SIZE = shapeCanvas.width;
+const CENTER = CANVAS_SIZE / 2;
+const HALF_SIZE = (CANVAS_SIZE / 2) - 10;
 
 // --- State ---
-const points = [];   // {x, y}
-let dragIndex = -1;  // index of point currently being dragged
+const points = [];
+let dragIndex = -1;
 
-// --- Fourier coefficients array (32 elements) ---
+// --- Fourier coefficients ---
 const fourierCoeffs = Array.from({ length: N }, () => ({
     amplitude: 0,
     phase: 0
 }));
 
-// --- Initialise points equally spaced on a circle ---
+// --- Initialize points on circle (math coords: center=0,0, radius=1) ---
 for (let i = 0; i < N; i++) {
-    const angle = (2 * Math.PI * i) / N - Math.PI / 2; // start at top
+    const angle = (2 * Math.PI * i) / N - Math.PI / 2;
     points.push({
-        x: CENTER + RADIUS * Math.cos(angle),
-        y: CENTER + RADIUS * Math.sin(angle)
+        x: Math.cos(angle),
+        y: Math.sin(angle)
     });
 }
 
 // --- Coordinate helpers ---
 function getMousePos(e, canvas) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+    };
+}
+
+function mathToCanvas(mx, my) {
+    return {
+        cx: CENTER + mx * HALF_SIZE,
+        cy: CENTER - my * HALF_SIZE
+    };
+}
+
+function pixelToMath(px, py) {
+    return {
+        x: (px - CENTER) / HALF_SIZE,
+        y: -(py - CENTER) / HALF_SIZE
     };
 }
 
 function findNearestPoint(mx, my) {
     for (let i = 0; i < N; i++) {
-        const dx = points[i].x - mx;
-        const dy = points[i].y - my;
+        const { cx, cy } = mathToCanvas(points[i].x, points[i].y);
+        const dx = cx - mx;
+        const dy = cy - my;
         if (dx * dx + dy * dy <= CIRCLE_RADIUS * CIRCLE_RADIUS) {
             return i;
         }
@@ -56,69 +69,43 @@ function findNearestPoint(mx, my) {
     return -1;
 }
 
-// --- By-definition DFT (textbook) ---
-// X[k] = Σ x[n] * e^(-i * 2π * k * n / N)  for k = 0, ..., N-1
-// Input: array of {re, im} complex numbers, length N (power of 2)
-// Returns: new array of {re, im} complex FFT coefficients
+// --- By-definition DFT ---
 function dft(signal) {
     const n = signal.length;
     const result = new Array(n);
-
     for (let k = 0; k < n; k++) {
-        let sumRe = 0;
-        let sumIm = 0;
-
+        let sumRe = 0, sumIm = 0;
         for (let nIdx = 0; nIdx < n; nIdx++) {
             const angle = -2 * Math.PI * k * nIdx / n;
             const cos = Math.cos(angle);
             const sin = Math.sin(angle);
-
-            // Multiply signal[n] by e^(-i*angle)
             const termRe = signal[nIdx].re * cos - signal[nIdx].im * sin;
             const termIm = signal[nIdx].re * sin + signal[nIdx].im * cos;
-
             sumRe += termRe;
             sumIm += termIm;
         }
-
         result[k] = { re: sumRe, im: sumIm };
     }
-
     return result;
 }
 
-// --- Compute DFT of the current point positions ---
+// --- Compute DFT ---
 function computeFFT() {
     const n = points.length;
-
-    // Normalize coordinates to the [-1, 1] range used by mathToCanvas
-    const margin = 10;
-    const halfSize = (CANVAS_SIZE / 2) - margin;
-    const xNorm = points.map(p => (p.x - CENTER) / halfSize);
-    const yNorm = points.map(p => -(p.y - CENTER) / halfSize); // flip y
-
-    // Combine into complex signal z = x + i*y
-    const complexZ = xNorm.map((x, i) => ({ re: x, im: yNorm[i] }));
-
-    // Run DFT (textbook by-definition)
+    // Points are already in math coordinates (center=0,0, radius=1)
+    const complexZ = points.map(p => ({ re: p.x, im: p.y }));
     const spectrum = dft(complexZ);
-
-    // Convert each DFT bin to amplitude and phase
     for (let k = 0; k < n; k++) {
         const re = spectrum[k].re;
         const im = spectrum[k].im;
         fourierCoeffs[k].amplitude = Math.sqrt(re * re + im * im) / n;
         fourierCoeffs[k].phase = Math.atan2(im, re);
     }
-
     console.log('FFT coefficients updated:', fourierCoeffs);
     draw();
 }
 
 // --- Fourier series evaluation ---
-// Given t in [0, 2π], compute x, y from Fourier coefficients:
-//   x = Σ amplitude_k * cos(t * k + phase_k)
-//   y = Σ amplitude_k * sin(t * k + phase_k)
 function fourierPoint(t) {
     let x = 0, y = 0;
     for (let k = 0; k < N; k++) {
@@ -128,38 +115,28 @@ function fourierPoint(t) {
     return { x, y };
 }
 
-// Map mathematical coordinates (origin at center, range [-1,1])
-// to canvas pixel coordinates
-function mathToCanvas(mx, my) {
-    const margin = 10;
-    const halfSize = (CANVAS_SIZE / 2) - margin;
-    return {
-        cx: CENTER + mx * halfSize,
-        cy: CENTER - my * halfSize   // flip y: canvas 0 is at top
-    };
-}
-
 // --- Drawing ---
 function draw() {
-    // Clear both canvases
     shapeCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     fftCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // --- Draw connection lines on shape canvas ---
+    // Shape canvas
     shapeCtx.beginPath();
     shapeCtx.strokeStyle = '#000';
     shapeCtx.lineWidth = LINE_THICKNESS;
     for (let i = 0; i < N; i++) {
         const next = (i + 1) % N;
-        shapeCtx.moveTo(points[i].x, points[i].y);
-        shapeCtx.lineTo(points[next].x, points[next].y);
+        const { cx: x1, cy: y1 } = mathToCanvas(points[i].x, points[i].y);
+        const { cx: x2, cy: y2 } = mathToCanvas(points[next].x, points[next].y);
+        shapeCtx.moveTo(x1, y1);
+        shapeCtx.lineTo(x2, y2);
     }
     shapeCtx.stroke();
 
-    // --- Draw points on shape canvas ---
     for (let i = 0; i < N; i++) {
+        const { cx, cy } = mathToCanvas(points[i].x, points[i].y);
         shapeCtx.beginPath();
-        shapeCtx.arc(points[i].x, points[i].y, CIRCLE_RADIUS, 0, 2 * Math.PI);
+        shapeCtx.arc(cx, cy, CIRCLE_RADIUS, 0, 2 * Math.PI);
         shapeCtx.fillStyle = '#e33';
         shapeCtx.fill();
         shapeCtx.strokeStyle = '#000';
@@ -167,11 +144,10 @@ function draw() {
         shapeCtx.stroke();
     }
 
-    // --- Draw Fourier curve on FFT canvas ---
+    // FFT canvas
     fftCtx.beginPath();
     fftCtx.strokeStyle = '#00f';
     fftCtx.lineWidth = 1.5;
-
     const steps = 500;
     for (let s = 0; s <= steps; s++) {
         const t = (s / steps) * 2 * Math.PI;
@@ -187,7 +163,7 @@ function draw() {
     fftCtx.stroke();
 }
 
-// --- Mouse events on shape canvas ---
+// --- Mouse events ---
 shapeCanvas.addEventListener('mousedown', (e) => {
     const pos = getMousePos(e, shapeCanvas);
     const idx = findNearestPoint(pos.x, pos.y);
@@ -199,16 +175,15 @@ shapeCanvas.addEventListener('mousedown', (e) => {
 
 window.addEventListener('mousemove', (e) => {
     if (dragIndex === -1) {
-        // Hover cursor change
         const pos = getMousePos(e, shapeCanvas);
         const idx = findNearestPoint(pos.x, pos.y);
         shapeCanvas.style.cursor = idx !== -1 ? 'grab' : 'default';
         return;
     }
-
     const pos = getMousePos(e, shapeCanvas);
-    points[dragIndex].x = pos.x;
-    points[dragIndex].y = pos.y;
+    const math = pixelToMath(pos.x, pos.y);
+    points[dragIndex].x = math.x;
+    points[dragIndex].y = math.y;
     draw();
 });
 
@@ -217,26 +192,27 @@ window.addEventListener('mouseup', () => {
     shapeCanvas.style.cursor = 'default';
 });
 
-// --- Compute FFT button ---
+// --- Buttons ---
 const fftBtn = document.getElementById('fftBtn');
 fftBtn.addEventListener('click', computeFFT);
 
-// --- Randomize button ---
 const randomizeBtn = document.getElementById('randomizeBtn');
 randomizeBtn.addEventListener('click', () => {
     for (let i = 0; i < N; i++) {
-        fourierCoeffs[i].amplitude = Math.random() * 4 - 2;       // [-2, 2]
-        fourierCoeffs[i].phase = Math.random() * 2 * Math.PI;     // [0, 2π]
+        fourierCoeffs[i].amplitude = Math.random() * 4 - 2;
+        fourierCoeffs[i].phase = Math.random() * 2 * Math.PI;
     }
     console.log('Coefficients randomized:', fourierCoeffs);
     draw();
 });
 
-// --- Expose points for external use ---
-Object.defineProperty(window, 'getPointCoordinates', {
-    value: () => points.map(p => ({ x: p.x, y: p.y })),
-    configurable: true
-});
+// --- Window API ---
+window.getPointCoordinates = () => points.map(p => ({ x: p.x, y: p.y }));
+window.getFourierCoefficients = () => fourierCoeffs.map(c => ({
+    amplitude: c.amplitude,
+    phase: c.phase
+}));
+window.mathToCanvas = mathToCanvas;
 
 // Initial draw
 draw();
