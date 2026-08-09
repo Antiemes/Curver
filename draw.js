@@ -56,60 +56,38 @@ function findNearestPoint(mx, my) {
     return -1;
 }
 
-// --- Radix-2 Cooley-Tukey iterative FFT ---
-// Operates in-place on an array of {re, im} complex numbers.
-// Length must be a power of 2.
-function fft(complexArray) {
-    const n = complexArray.length;
-    const bits = Math.log2(n);
+// --- By-definition DFT (textbook) ---
+// X[k] = Σ x[n] * e^(-i * 2π * k * n / N)  for k = 0, ..., N-1
+// Input: array of {re, im} complex numbers, length N (power of 2)
+// Returns: new array of {re, im} complex FFT coefficients
+function dft(signal) {
+    const n = signal.length;
+    const result = new Array(n);
 
-    // Bit-reversal permutation
-    for (let i = 0; i < n; i++) {
-        let j = 0;
-        for (let b = 0; b < bits; b++) {
-            j = (j << 1) | ((i >> b) & 1);
+    for (let k = 0; k < n; k++) {
+        let sumRe = 0;
+        let sumIm = 0;
+
+        for (let nIdx = 0; nIdx < n; nIdx++) {
+            const angle = -2 * Math.PI * k * nIdx / n;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+
+            // Multiply signal[n] by e^(-i*angle)
+            const termRe = signal[nIdx].re * cos - signal[nIdx].im * sin;
+            const termIm = signal[nIdx].re * sin + signal[nIdx].im * cos;
+
+            sumRe += termRe;
+            sumIm += termIm;
         }
-        if (i < j) {
-            const tmp = complexArray[i];
-            complexArray[i] = complexArray[j];
-            complexArray[j] = tmp;
-        }
+
+        result[k] = { re: sumRe, im: sumIm };
     }
 
-    // Butterfly stages
-    for (let len = 2; len <= n; len *= 2) {
-        const halfLen = len >> 1;
-        const angle = -2 * Math.PI / len;
-        const wLenRe = Math.cos(angle);
-        const wLenIm = Math.sin(angle);
-
-        for (let i = 0; i < n; i += len) {
-            let wRe = 1;
-            let wIm = 0;
-            for (let j = 0; j < halfLen; j++) {
-                const uRe = complexArray[i + j].re;
-                const uIm = complexArray[i + j].im;
-                const vRe = complexArray[i + j + halfLen].re * wRe
-                          - complexArray[i + j + halfLen].im * wIm;
-                const vIm = complexArray[i + j + halfLen].re * wIm
-                          + complexArray[i + j + halfLen].im * wRe;
-
-                complexArray[i + j].re = uRe + vRe;
-                complexArray[i + j].im = uIm + vIm;
-                complexArray[i + j + halfLen].re = uRe - vRe;
-                complexArray[i + j + halfLen].im = uIm - vIm;
-
-                // Update twiddle factor: w *= wLen
-                const newWRe = wRe * wLenRe - wIm * wLenIm;
-                const newWIm = wRe * wLenIm + wIm * wLenRe;
-                wRe = newWRe;
-                wIm = newWIm;
-            }
-        }
-    }
+    return result;
 }
 
-// --- Compute FFT of the current point positions ---
+// --- Compute DFT of the current point positions ---
 function computeFFT() {
     const n = points.length;
 
@@ -122,13 +100,13 @@ function computeFFT() {
     // Combine into complex signal z = x + i*y
     const complexZ = xNorm.map((x, i) => ({ re: x, im: yNorm[i] }));
 
-    // Run FFT in-place
-    fft(complexZ);
+    // Run DFT (textbook by-definition)
+    const spectrum = dft(complexZ);
 
-    // Convert each FFT bin to amplitude and phase
+    // Convert each DFT bin to amplitude and phase
     for (let k = 0; k < n; k++) {
-        const re = complexZ[k].re;
-        const im = complexZ[k].im;
+        const re = spectrum[k].re;
+        const im = spectrum[k].im;
         fourierCoeffs[k].amplitude = Math.sqrt(re * re + im * im) / n;
         fourierCoeffs[k].phase = Math.atan2(im, re);
     }
