@@ -18,6 +18,7 @@ const HALF_SIZE = (CANVAS_SIZE / 2) - 10;
 // --- State ---
 const points = [];
 let dragIndex = -1;
+let syncingTextarea = false;
 
 // --- Fourier coefficients ---
 const fourierCoeffs = Array.from({ length: N }, () => ({
@@ -115,6 +116,7 @@ function computeFFT()
   }
   console.log('FFT coefficients updated:', fourierCoeffs);
   draw();
+  updateTextarea();
 }
 
 // --- Fourier series evaluation (IDFT reconstruction) ---
@@ -212,6 +214,63 @@ window.addEventListener('mouseup', () => {
     shapeCanvas.style.cursor = 'default';
 });
 
+// --- Point textarea sync ---
+const pointTextarea = document.getElementById('pointTextarea');
+
+function updateTextarea() {
+    if (syncingTextarea) return;
+    syncingTextarea = true;
+    pointTextarea.classList.remove('error');
+    let text = '';
+    for (let i = 0; i < points.length; i++) {
+        text += points[i].x.toFixed(6) + ',' + points[i].y.toFixed(6) + '\n';
+    }
+    pointTextarea.value = text;
+    syncingTextarea = false;
+}
+
+function updatePointsFromTextarea() {
+    syncingTextarea = true;
+    const lines = pointTextarea.value.trim().split('\n');
+    const error = pointTextarea.classList.contains('error');
+    pointTextarea.classList.remove('error');
+
+    // Validate all lines first
+    const newPoints = [];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line === '') continue;
+        const parts = line.split(/[\s,]+/);
+        if (parts.length < 2) {
+            pointTextarea.classList.add('error');
+            syncingTextarea = false;
+            return;
+        }
+        const x = parseFloat(parts[0]);
+        const y = parseFloat(parts[1]);
+        if (isNaN(x) || isNaN(y)) {
+            pointTextarea.classList.add('error');
+            syncingTextarea = false;
+            return;
+        }
+        newPoints.push({ x, y });
+    }
+
+    if (newPoints.length === points.length) {
+        for (let i = 0; i < newPoints.length; i++) {
+            points[i].x = newPoints[i].x;
+            points[i].y = newPoints[i].y;
+        }
+        computeFFT();
+    }
+
+    // Re-sync the textarea after any changes
+    syncingTextarea = false;
+    updateTextarea();
+}
+
+pointTextarea.addEventListener('input', updatePointsFromTextarea);
+
 // --- Window API ---
 window.getPointCoordinates = () => points.map(p => ({ x: p.x, y: p.y }));
 window.getFourierCoefficients = () => fourierCoeffs.map(c => ({
@@ -222,3 +281,4 @@ window.mathToCanvas = mathToCanvas;
 
 // Initial draw
 draw();
+updateTextarea();
