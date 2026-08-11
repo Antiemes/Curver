@@ -212,20 +212,6 @@ window.addEventListener('mouseup', () => {
     shapeCanvas.style.cursor = 'default';
 });
 
-// --- Buttons ---
-const fftBtn = document.getElementById('fftBtn');
-fftBtn.addEventListener('click', computeFFT);
-
-const randomizeBtn = document.getElementById('randomizeBtn');
-randomizeBtn.addEventListener('click', () => {
-    for (let i = 0; i < N; i++) {
-        fourierCoeffs[i].amplitude = Math.random() * 4 - 2;
-        fourierCoeffs[i].phase = Math.random() * 2 * Math.PI;
-    }
-    console.log('Coefficients randomized:', fourierCoeffs);
-    draw();
-});
-
 // --- Window API ---
 window.getPointCoordinates = () => points.map(p => ({ x: p.x, y: p.y }));
 window.getFourierCoefficients = () => fourierCoeffs.map(c => ({
