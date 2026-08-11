@@ -70,39 +70,44 @@ function findNearestPoint(mx, my) {
 }
 
 // --- By-definition DFT ---
-function dft(signal) {
-    const n = signal.length;
-    const result = new Array(n);
-    for (let k = 0; k < n; k++) {
-        let sumRe = 0, sumIm = 0;
-        for (let nIdx = 0; nIdx < n; nIdx++) {
-            const angle = -2 * Math.PI * k * nIdx / n;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const termRe = signal[nIdx].re * cos - signal[nIdx].im * sin;
-            const termIm = signal[nIdx].re * sin + signal[nIdx].im * cos;
-            sumRe += termRe;
-            sumIm += termIm;
-        }
-        result[k] = { re: sumRe, im: sumIm };
+function dft(signal)
+{
+  const n = signal.length;
+  const result = new Array(n);
+  for (let k = 0; k < n; k++)
+  {
+    let sumRe = 0, sumIm = 0;
+    for (let nIdx = 0; nIdx < n; nIdx++)
+    {
+      const angle = -2 * Math.PI * k * nIdx / n;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const termRe = signal[nIdx].re * cos - signal[nIdx].im * sin;
+      const termIm = signal[nIdx].re * sin + signal[nIdx].im * cos;
+      sumRe += termRe;
+      sumIm += termIm;
     }
-    return result;
+    result[k] = { re: sumRe, im: sumIm };
+  }
+  return result;
 }
 
 // --- Compute DFT ---
-function computeFFT() {
-    const n = points.length;
-    // Points are already in math coordinates (center=0,0, radius=1)
-    const complexZ = points.map(p => ({ re: p.x, im: p.y }));
-    const spectrum = dft(complexZ);
-    for (let k = 0; k < n; k++) {
-        const re = spectrum[k].re;
-        const im = spectrum[k].im;
-        fourierCoeffs[k].amplitude = Math.sqrt(re * re + im * im) / n;
-        fourierCoeffs[k].phase = Math.atan2(im, re);
-    }
-    console.log('FFT coefficients updated:', fourierCoeffs);
-    draw();
+function computeFFT()
+{
+  const n = points.length;
+  // Points are already in math coordinates (center=0,0, radius=1)
+  const complexZ = points.map(p => ({ re: p.x, im: p.y }));
+  const spectrum = dft(complexZ);
+  for (let k = 0; k < n; k++)
+  {
+    const re = spectrum[k].re;
+    const im = spectrum[k].im;
+    fourierCoeffs[k].amplitude = Math.sqrt(re * re + im * im) / n;
+    fourierCoeffs[k].phase = Math.atan2(im, re);
+  }
+  console.log('FFT coefficients updated:', fourierCoeffs);
+  draw();
 }
 
 // --- Fourier series evaluation ---
