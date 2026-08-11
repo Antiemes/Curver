@@ -111,13 +111,15 @@ function computeFFT()
 }
 
 // --- Fourier series evaluation ---
-function fourierPoint(t) {
-    let x = 0, y = 0;
-    for (let k = 0; k < N; k++) {
-        x += fourierCoeffs[k].amplitude * Math.cos(t * k + fourierCoeffs[k].phase);
-        y += fourierCoeffs[k].amplitude * Math.sin(t * k + fourierCoeffs[k].phase);
-    }
-    return { x, y };
+function fourierPoint(t)
+{
+  let x = 0, y = 0;
+  for (let k = 0; k < N; k++)
+  {
+    x += fourierCoeffs[k].amplitude * Math.cos(t * k + fourierCoeffs[k].phase);
+    y += fourierCoeffs[k].amplitude * Math.sin(t * k + fourierCoeffs[k].phase);
+  }
+  return { x, y };
 }
 
 // --- Drawing ---
