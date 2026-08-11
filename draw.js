@@ -69,17 +69,21 @@ function findNearestPoint(mx, my) {
     return -1;
 }
 
-// --- By-definition DFT ---
+// --- By-definition DFT (centered: k from -N/2 to N/2-1) ---
 function dft(signal)
 {
   const n = signal.length;
+  const halfN = n / 2;
   const result = new Array(n);
-  for (let k = 0; k < n; k++)
+  // Output order: -N/2, -N/2+1, ..., -1, 0, 1, ..., N/2-1
+  for (let idx = 0; idx < n; idx++)
   {
+    const k = idx - halfN; // centered frequency index: -N/2 to N/2-1
+    const kStd = (k + n) % n; // standard DFT index (0 to N-1)
     let sumRe = 0, sumIm = 0;
     for (let nIdx = 0; nIdx < n; nIdx++)
     {
-      const angle = -2 * Math.PI * k * nIdx / n;
+      const angle = -2 * Math.PI * kStd * nIdx / n;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       const termRe = signal[nIdx].re * cos - signal[nIdx].im * sin;
@@ -87,7 +91,7 @@ function dft(signal)
       sumRe += termRe;
       sumIm += termIm;
     }
-    result[k] = { re: sumRe, im: sumIm };
+    result[idx] = { re: sumRe, im: sumIm };
   }
   return result;
 }
@@ -99,25 +103,34 @@ function computeFFT()
   // Points are already in math coordinates (center=0,0, radius=1)
   const complexZ = points.map(p => ({ re: p.x, im: p.y }));
   const spectrum = dft(complexZ);
+  // spectrum[k] now corresponds to centered frequency index k - N/2 (range: -N/2 to N/2-1)
   for (let k = 0; k < n; k++)
   {
+    const freq = k - n / 2; // centered frequency index
     const re = spectrum[k].re;
     const im = spectrum[k].im;
     fourierCoeffs[k].amplitude = Math.sqrt(re * re + im * im) / n;
     fourierCoeffs[k].phase = Math.atan2(im, re);
+    fourierCoeffs[k].freq = freq;
   }
   console.log('FFT coefficients updated:', fourierCoeffs);
   draw();
 }
 
-// --- Fourier series evaluation ---
+// --- Fourier series evaluation (IDFT reconstruction) ---
 function fourierPoint(t)
 {
   let x = 0, y = 0;
   for (let k = 0; k < N; k++)
   {
-    x += fourierCoeffs[k].amplitude * Math.cos(t * k + fourierCoeffs[k].phase);
-    y += fourierCoeffs[k].amplitude * Math.sin(t * k + fourierCoeffs[k].phase);
+    const freq = k - N / 2; // centered frequency index: -N/2 to N/2-1
+    const angle = t * freq;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const X_re = fourierCoeffs[k].amplitude * Math.cos(fourierCoeffs[k].phase);
+    const X_im = fourierCoeffs[k].amplitude * Math.sin(fourierCoeffs[k].phase);
+    x += X_re * c - X_im * s;
+    y += X_re * s + X_im * c;
   }
   return { x, y };
 }
