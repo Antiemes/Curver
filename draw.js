@@ -204,7 +204,7 @@ window.addEventListener('mousemove', (e) => {
     const math = pixelToMath(pos.x, pos.y);
     points[dragIndex].x = math.x;
     points[dragIndex].y = math.y;
-    draw();
+    computeFFT();
 });
 
 window.addEventListener('mouseup', () => {
